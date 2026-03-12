@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Outlook 邮箱管理台</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+    <div class="shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-mark">OM</div>
+                <div>
+                    <h1>Outlook 邮箱管理台</h1>
+                    <p>本地批量邮箱管理工作台</p>
+                </div>
+            </div>
+
+            <nav class="nav">
+                <button class="nav-item is-active" type="button">邮箱总览</button>
+                <button class="nav-item" type="button" id="navImport">批量导入</button>
+                <button class="nav-item" type="button" id="navAdd">新增账号</button>
+                <button class="nav-item" type="button" id="navExport">导出备份</button>
+            </nav>
+
+            <section class="side-card">
+                <span class="side-card-label">导入格式</span>
+                <p>每行一个账号，默认支持以下字段顺序：</p>
+                <code>email----password----client_id----refresh_token----access_token----group----note</code>
+            </section>
+
+            <section class="side-card">
+                <span class="side-card-label">使用说明</span>
+                <p>仅用于管理你自己拥有或已获授权的 Outlook 邮箱账号，默认在本地运行。</p>
+            </section>
+        </aside>
+
+        <main class="main">
+            <header class="hero">
+                <div>
+                    <span class="hero-kicker">本地部署</span>
+                    <h2>统一管理 Outlook 账号、令牌、状态检测与邮件预览</h2>
+                    <p>适合本地批量导入、状态检查、收件箱预览和导出备份，操作流程接近后台管理台。</p>
+                </div>
+                <div class="hero-badges">
+                    <span class="badge-pill">接口服务</span>
+                    <span class="badge-pill">本地存储</span>
+                    <span class="badge-pill">本机运行</span>
+                </div>
+            </header>
+
+            <section class="stats-grid">
+                <article class="stat-card">
+                    <span class="stat-label">账号总数</span>
+                    <strong id="statTotal">0</strong>
+                    <small>当前本地数据库中的 Outlook 账号数量</small>
+                </article>
+                <article class="stat-card accent-emerald">
+                    <span class="stat-label">可用账号</span>
+                    <strong id="statHealthy">0</strong>
+                    <small>可正常访问收件箱的账号</small>
+                </article>
+                <article class="stat-card accent-amber">
+                    <span class="stat-label">待处理</span>
+                    <strong id="statAttention">0</strong>
+                    <small>检测失败、权限不足或缺少令牌</small>
+                </article>
+                <article class="stat-card accent-sky">
+                    <span class="stat-label">缺少令牌</span>
+                    <strong id="statTokenless">0</strong>
+                    <small>尚未填写 access_token 或 refresh_token</small>
+                </article>
+            </section>
+
+            <section class="panel controls-panel">
+                <div class="panel-header">
+                    <div>
+                        <h3>邮箱控制中心</h3>
+                        <p>支持搜索、导入、检测、删除、查看邮件和导出备份。</p>
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-muted" id="refreshBtn" type="button">刷新</button>
+                        <button class="btn btn-secondary" id="addBtn" type="button">新增账号</button>
+                        <button class="btn btn-primary" id="importBtn" type="button">批量导入</button>
+                    </div>
+                </div>
+
+                <div class="toolbar">
+                    <label class="field field-grow">
+                        <span>搜索</span>
+                        <input type="search" id="searchInput" placeholder="按邮箱、分组或状态搜索">
+                    </label>
+                    <label class="field">
+                        <span>状态</span>
+                        <select id="statusFilter">
+                            <option value="all">全部状态</option>
+                            <option value="ready">正常</option>
+                            <option value="pending">待检查</option>
+                            <option value="insufficient_scope">权限不足</option>
+                            <option value="failed">检查失败</option>
+                            <option value="needs_token">需补充令牌</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>分组</span>
+                        <select id="groupFilter">
+                            <option value="all">全部分组</option>
+                        </select>
+                    </label>
+                    <div class="toolbar-actions">
+                        <button class="btn btn-muted" id="batchCheckBtn" type="button">批量检测</button>
+                        <button class="btn btn-muted" id="exportBtn" type="button">导出 CSV</button>
+                        <button class="btn btn-danger" id="batchDeleteBtn" type="button">批量删除</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="workspace">
+                <article class="panel table-panel">
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th class="checkbox-cell"><input type="checkbox" id="selectAll"></th>
+                                    <th>邮箱账号</th>
+                                    <th>分组</th>
+                                    <th>接入方式</th>
+                                    <th>凭据</th>
+                                    <th>状态</th>
+                                    <th>最近检测</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accountsTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="empty-state hidden" id="emptyState">
+                        <h4>还没有账号</h4>
+                        <p>点击“新增账号”或“批量导入”开始录入 Outlook 邮箱。</p>
+                    </div>
+                </article>
+
+                <aside class="panel detail-panel" id="detailPanel">
+                    <div class="detail-placeholder">
+                        <h3>账号详情</h3>
+                        <p>从左侧选择一个账号后，这里会显示凭据情况、备注、时间线和快捷操作。</p>
+                    </div>
+                </aside>
+            </section>
+        </main>
+    </div>
+
+    <div class="modal hidden" id="accountModal">
+        <div class="modal-card modal-large">
+            <div class="modal-header">
+                <div>
+                    <h3 id="accountModalTitle">新增账号</h3>
+                    <p>密码仅用于本地归档记录，真正访问收件箱使用访问令牌或刷新令牌。</p>
+                </div>
+                <button class="icon-btn" type="button" data-close="accountModal">关闭</button>
+            </div>
+            <form id="accountForm" class="form-grid">
+                <input type="hidden" id="accountId">
+                <label class="field">
+                    <span>邮箱地址</span>
+                    <input type="email" id="email" required placeholder="name@outlook.com">
+                </label>
+                <label class="field">
+                    <span>显示名称</span>
+                    <input type="text" id="display_name" placeholder="例如 财务组 01">
+                </label>
+                <label class="field">
+                    <span>分组</span>
+                    <input type="text" id="group_name" placeholder="默认分组">
+                </label>
+                <label class="field">
+                    <span>启用状态</span>
+                    <select id="is_active">
+                        <option value="true">启用</option>
+                        <option value="false">停用</option>
+                    </select>
+                </label>
+                <label class="field field-span-2">
+                    <span>密码归档</span>
+                    <input type="text" id="password" placeholder="可选，仅作本地记录">
+                </label>
+                <label class="field field-span-2">
+                    <span>备注</span>
+                    <textarea id="note" rows="3" placeholder="填写用途、来源或负责人"></textarea>
+                </label>
+                <label class="field">
+                    <span>客户端 ID</span>
+                    <input type="text" id="client_id" placeholder="可选">
+                </label>
+                <label class="field">
+                    <span>租户 ID</span>
+                    <input type="text" id="tenant_id" placeholder="common 或自定义租户">
+                </label>
+                <label class="field field-span-2">
+                    <span>客户端密钥</span>
+                    <input type="text" id="client_secret" placeholder="可选">
+                </label>
+                <label class="field field-span-2">
+                    <span>刷新令牌</span>
+                    <textarea id="refresh_token" rows="4" placeholder="推荐填写，便于自动刷新访问令牌"></textarea>
+                </label>
+                <label class="field field-span-2">
+                    <span>访问令牌</span>
+                    <textarea id="access_token" rows="4" placeholder="也可直接填写 bearer token"></textarea>
+                </label>
+                <div class="modal-footer field-span-2">
+                    <button class="btn btn-muted" type="button" data-close="accountModal">取消</button>
+                    <button class="btn btn-primary" type="submit">保存账号</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal hidden" id="importModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div>
+                    <h3>批量导入</h3>
+                    <p>支持纯文本、CSV 标题行和制表符分隔内容。</p>
+                </div>
+                <button class="icon-btn" type="button" data-close="importModal">关闭</button>
+            </div>
+            <label class="field">
+                <span>粘贴账号数据</span>
+                <textarea id="importText" rows="14" placeholder="email----password----client_id----refresh_token----access_token----group----note"></textarea>
+            </label>
+            <div class="import-example">
+                <strong>示例</strong>
+                <pre>sales01@outlook.com----pass-demo----client-id-demo----refresh-token-demo--------销售组----主账号
+sales02@outlook.com--------refresh-token-demo----access-token-demo----售后组----备用账号</pre>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-muted" type="button" data-close="importModal">取消</button>
+                <button class="btn btn-primary" type="button" id="submitImportBtn">开始导入</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal hidden" id="emailModal">
+        <div class="modal-card modal-mail">
+            <div class="modal-header">
+                <div>
+                    <h3 id="emailModalTitle">邮件预览</h3>
+                    <p>显示当前账号收件箱最近 20 封邮件。</p>
+                </div>
+                <button class="icon-btn" type="button" data-close="emailModal">关闭</button>
+            </div>
+            <div class="mail-layout">
+                <div class="mail-list-wrap">
+                    <div class="mail-search">
+                        <input type="search" id="mailSearchInput" placeholder="搜索主题或发件人">
+                    </div>
+                    <div class="mail-list" id="mailList"></div>
+                </div>
+                <div class="mail-preview" id="mailPreview">
+                    <div class="detail-placeholder">
+                        <h3>邮件预览</h3>
+                        <p>从左侧选择一封邮件后，在这里显示正文内容。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+    <div class="loading hidden" id="loadingOverlay">
+        <div class="loading-card">
+            <div class="spinner"></div>
+            <p id="loadingText">加载中...</p>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

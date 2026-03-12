@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>授权回调</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-md p-8 max-w-md w-full mx-4 text-center">
+        <div id="loading">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p class="mt-4 text-gray-600">正在处理授权...</p>
+        </div>
+        <div id="success" class="hidden">
+            <div class="text-green-500 text-6xl">✓</div>
+            <p class="mt-4 text-gray-800 font-medium">授权成功！</p>
+            <p class="mt-2 text-gray-600 text-sm">此窗口可以关闭了</p>
+        </div>
+        <div id="error" class="hidden">
+            <div class="text-red-500 text-6xl">✗</div>
+            <p class="mt-4 text-gray-800 font-medium">授权失败</p>
+            <p id="errorMsg" class="mt-2 text-gray-600 text-sm"></p>
+        </div>
+    </div>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const error = urlParams.get('error');
+        const errorDescription = urlParams.get('error_description');
+        
+        if (code) {
+            if (window.opener) {
+                window.opener.postMessage({ type: 'auth_code', code: code }, '*');
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('success').classList.remove('hidden');
+                setTimeout(() => window.close(), 2000);
+            } else {
+                document.getElementById('loading').innerHTML = `
+                    <p class="text-gray-800">授权码已获取：</p>
+                    <textarea class="w-full mt-2 p-2 border rounded text-xs" rows="3" readonly>${code}</textarea>
+                    <p class="mt-4 text-gray-600 text-sm">请复制此授权码，返回主页面粘贴</p>
+                `;
+            }
+        } else if (error) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('error').classList.remove('hidden');
+            document.getElementById('errorMsg').textContent = errorDescription || error;
+        }
+    </script>
+</body>
+</html>
