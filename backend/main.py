@@ -94,6 +94,7 @@ def account_to_list_item(account: Account) -> AccountListItem:
         id=account.id,
         email=account.email,
         display_name=account.display_name,
+        password=account.password,
         group_name=normalize_group_name(account.group_name),
         auth_mode=account.auth_mode,
         is_active=account.is_active,
@@ -114,7 +115,6 @@ def account_to_detail(account: Account) -> AccountDetail:
     item = account_to_list_item(account)
     return AccountDetail(
         **item.model_dump(),
-        password=account.password,
         note=account.note,
         client_id=account.client_id,
         client_secret=account.client_secret,

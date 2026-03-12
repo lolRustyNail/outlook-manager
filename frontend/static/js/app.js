@@ -3,15 +3,26 @@ const STATUS_LABELS = {
     pending: "待检查",
     insufficient_scope: "权限不足",
     failed: "检查失败",
-    needs_token: "需补充令牌",
+    needs_token: "缺少令牌",
 };
 
 const AUTH_MODE_LABELS = {
-    "refresh+access": "刷新令牌 + 访问令牌",
-    refresh_token: "仅刷新令牌",
-    access_token: "仅访问令牌",
+    "refresh+access": "双令牌",
+    refresh_token: "刷新令牌",
+    access_token: "访问令牌",
     password_archive: "仅密码归档",
     manual_token: "手动录入",
+};
+
+const MESSAGE_MAP = {
+    "Authentication succeeded and inbox access works": "鉴权成功，收件箱访问正常",
+    "Authentication succeeded": "鉴权成功",
+    "Inbox access works": "收件箱访问正常",
+    "Authentication works but mail read scope is missing": "鉴权成功，但缺少读取邮件权限",
+    "Connection check failed": "连接检测失败",
+    "No access token or refresh token is available yet": "暂未提供 access_token 或 refresh_token",
+    "Please provide an access token or refresh token first": "请先提供 access_token 或 refresh_token",
+    "Last inbox fetch succeeded": "最近一次收件箱读取成功",
 };
 
 const DEFAULT_GROUP_LABEL = "默认分组";
@@ -61,11 +72,16 @@ async function api(path, options = {}) {
         } catch (error) {
             message = (await response.text()) || message;
         }
-        throw new Error(message);
+        throw new Error(normalizeMessage(message));
     }
 
     const contentType = response.headers.get("content-type") || "";
     return contentType.includes("application/json") ? response.json() : response;
+}
+
+function normalizeMessage(message) {
+    if (!message) return "暂无说明";
+    return MESSAGE_MAP[message] || message;
 }
 
 function statusLabel(status) {
@@ -93,12 +109,12 @@ function hideLoading() {
 function toast(message, type = "info") {
     const node = document.createElement("div");
     node.className = `toast toast-${type}`;
-    node.textContent = message;
+    node.textContent = normalizeMessage(message);
     elements.toastContainer.appendChild(node);
     setTimeout(() => {
         node.classList.add("toast-exit");
-        setTimeout(() => node.remove(), 240);
-    }, 2600);
+        setTimeout(() => node.remove(), 220);
+    }, 2400);
 }
 
 function openModal(id) {
@@ -141,6 +157,32 @@ function maskSecret(value) {
     return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
+async function copyText(value, label) {
+    if (!value) {
+        toast(`${label}为空，无法复制`, "error");
+        return;
+    }
+
+    try {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(value);
+        } else {
+            const input = document.createElement("textarea");
+            input.value = value;
+            input.setAttribute("readonly", "readonly");
+            input.style.position = "absolute";
+            input.style.left = "-9999px";
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand("copy");
+            input.remove();
+        }
+        toast(`${label}已复制`, "success");
+    } catch (error) {
+        toast(`复制${label}失败`, "error");
+    }
+}
+
 function filteredAccounts() {
     const keyword = elements.searchInput.value.trim().toLowerCase();
     const status = elements.statusFilter.value;
@@ -148,11 +190,11 @@ function filteredAccounts() {
 
     return state.accounts.filter((account) => {
         const matchesKeyword =
-            !keyword ||
-            account.email.toLowerCase().includes(keyword) ||
-            displayGroup(account.group_name).toLowerCase().includes(keyword) ||
-            statusLabel(account.status).toLowerCase().includes(keyword) ||
-            (account.display_name || "").toLowerCase().includes(keyword);
+            !keyword
+            || account.email.toLowerCase().includes(keyword)
+            || (account.display_name || "").toLowerCase().includes(keyword)
+            || displayGroup(account.group_name).toLowerCase().includes(keyword)
+            || statusLabel(account.status).toLowerCase().includes(keyword);
 
         const matchesStatus = status === "all" || account.status === status;
         const matchesGroup = group === "all" || displayGroup(account.group_name) === group;
@@ -199,43 +241,42 @@ function renderAccounts() {
         return;
     }
 
-    elements.accountsTableBody.innerHTML = accounts.map((account) => {
-        const credentialTags = [
-            account.has_password ? '<span class="mini-pill">密码</span>' : "",
-            account.has_access_token ? '<span class="mini-pill success">访问令牌</span>' : "",
-            account.has_refresh_token ? '<span class="mini-pill info">刷新令牌</span>' : "",
-        ].filter(Boolean).join("");
-
-        return `
-            <tr data-account-id="${account.id}" class="${state.activeAccountId === account.id ? "row-active" : ""}">
-                <td class="checkbox-cell"><input type="checkbox" data-select-id="${account.id}" ${state.selectedIds.has(account.id) ? "checked" : ""}></td>
-                <td>
-                    <div class="account-cell">
-                        <strong>${escapeHtml(account.email)}</strong>
+    elements.accountsTableBody.innerHTML = accounts.map((account) => `
+        <tr data-account-id="${account.id}" class="${state.activeAccountId === account.id ? "row-active" : ""}">
+            <td class="checkbox-cell"><input type="checkbox" data-select-id="${account.id}" ${state.selectedIds.has(account.id) ? "checked" : ""}></td>
+            <td>
+                <div class="account-cell compact">
+                    <strong>${escapeHtml(account.email)}</strong>
+                    <div class="inline-copy-row">
                         <small>${escapeHtml(account.display_name || "未填写显示名称")}</small>
+                        <button class="mini-copy-btn" type="button" data-copy-field="email" data-copy-value="${escapeHtml(account.email || "")}">复制</button>
                     </div>
-                </td>
-                <td>${escapeHtml(displayGroup(account.group_name))}</td>
-                <td>${escapeHtml(authModeLabel(account.auth_mode))}</td>
-                <td><div class="mini-pill-row">${credentialTags || '<span class="mini-pill muted">无</span>'}</div></td>
-                <td>
-                    <div class="status-cell">
-                        <span class="${statusClass(account.status)}">${escapeHtml(statusLabel(account.status))}</span>
-                        <small>${escapeHtml(account.status_message || "暂无详情")}</small>
-                    </div>
-                </td>
-                <td>${escapeHtml(formatDate(account.last_check_at))}</td>
-                <td>
-                    <div class="row-actions">
-                        <button class="table-btn" type="button" data-action="detail" data-id="${account.id}">详情</button>
-                        <button class="table-btn" type="button" data-action="check" data-id="${account.id}">检测</button>
-                        <button class="table-btn" type="button" data-action="mail" data-id="${account.id}">邮件</button>
-                        <button class="table-btn danger" type="button" data-action="delete" data-id="${account.id}">删除</button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join("");
+                </div>
+            </td>
+            <td>
+                <div class="password-cell">
+                    <strong>${escapeHtml(account.password || "未填写")}</strong>
+                    <button class="mini-copy-btn" type="button" data-copy-field="password" data-copy-value="${escapeHtml(account.password || "")}">复制</button>
+                </div>
+            </td>
+            <td>${escapeHtml(displayGroup(account.group_name))}</td>
+            <td>${escapeHtml(authModeLabel(account.auth_mode))}</td>
+            <td>
+                <div class="status-cell">
+                    <span class="${statusClass(account.status)}">${escapeHtml(statusLabel(account.status))}</span>
+                    <small>${escapeHtml(normalizeMessage(account.status_message) || "暂无说明")}</small>
+                </div>
+            </td>
+            <td>${escapeHtml(formatDate(account.last_check_at))}</td>
+            <td>
+                <div class="row-actions">
+                    <button class="table-btn" type="button" data-action="check" data-id="${account.id}">检测</button>
+                    <button class="table-btn" type="button" data-action="mail" data-id="${account.id}">邮件</button>
+                    <button class="table-btn danger" type="button" data-action="delete" data-id="${account.id}">删除</button>
+                </div>
+            </td>
+        </tr>
+    `).join("");
 
     elements.selectAll.checked = accounts.length > 0 && accounts.every((item) => state.selectedIds.has(item.id));
 }
@@ -246,11 +287,18 @@ function renderDetailPanel() {
         elements.detailPanel.innerHTML = `
             <div class="detail-placeholder">
                 <h3>账号详情</h3>
-                <p>点击左侧任意账号后，这里会显示凭据情况、备注、时间线和快捷操作。</p>
+                <p>选中一条账号后，这里显示精简信息和常用操作。</p>
             </div>
         `;
         return;
     }
+
+    const message = normalizeMessage(account.status_message);
+    const credentialPills = [
+        account.has_password ? '<span class="mini-pill">密码归档</span>' : "",
+        account.has_access_token ? '<span class="mini-pill success">访问令牌</span>' : "",
+        account.has_refresh_token ? '<span class="mini-pill info">刷新令牌</span>' : "",
+    ].filter(Boolean).join("");
 
     elements.detailPanel.innerHTML = `
         <div class="detail-header">
@@ -264,38 +312,69 @@ function renderDetailPanel() {
                 <button class="btn btn-primary" type="button" data-action="detail-check" data-id="${account.id}">立即检测</button>
             </div>
         </div>
-        <div class="detail-grid">
-            <div class="detail-item">
+
+        <div class="detail-summary">
+            <div class="summary-item">
                 <span>当前状态</span>
                 <strong>${escapeHtml(statusLabel(account.status))}</strong>
-                <small>${escapeHtml(account.status_message || "暂无详情")}</small>
             </div>
-            <div class="detail-item">
+            <div class="summary-item">
                 <span>接入方式</span>
                 <strong>${escapeHtml(authModeLabel(account.auth_mode))}</strong>
-                <small>${account.is_active ? "账号已启用" : "账号已停用"}</small>
             </div>
-            <div class="detail-item">
-                <span>访问令牌</span>
-                <strong>${escapeHtml(maskSecret(account.access_token))}</strong>
-                <small>${account.token_expires_at ? `过期时间：${formatDate(account.token_expires_at)}` : "未记录过期时间"}</small>
+            <div class="summary-item">
+                <span>最近检测</span>
+                <strong>${escapeHtml(formatDate(account.last_check_at))}</strong>
             </div>
-            <div class="detail-item">
-                <span>刷新令牌</span>
-                <strong>${escapeHtml(maskSecret(account.refresh_token))}</strong>
-                <small>客户端 ID：${escapeHtml(account.client_id || "使用默认公共客户端")}</small>
+            <div class="summary-item">
+                <span>最近收信</span>
+                <strong>${escapeHtml(formatDate(account.last_sync_at))}</strong>
             </div>
         </div>
+
         <div class="detail-section">
-            <h4>时间线</h4>
-            <p>最近检测：${escapeHtml(formatDate(account.last_check_at))}</p>
-            <p>最近收信：${escapeHtml(formatDate(account.last_sync_at))}</p>
-            <p>最后更新：${escapeHtml(formatDate(account.updated_at))}</p>
+            <h4>当前说明</h4>
+            <p>${escapeHtml(message || "暂无说明")}</p>
         </div>
+
+        <div class="detail-section">
+            <h4>账号与密码</h4>
+            <div class="credential-grid">
+                <div class="credential-item">
+                    <span>账号</span>
+                    <strong>${escapeHtml(account.email || "未填写")}</strong>
+                    <button class="copy-btn" type="button" data-copy-field="email">复制账号</button>
+                </div>
+                <div class="credential-item">
+                    <span>密码</span>
+                    <strong>${escapeHtml(account.password || "未填写")}</strong>
+                    <button class="copy-btn" type="button" data-copy-field="password">复制密码</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4>凭据情况</h4>
+            <div class="mini-pill-row">${credentialPills || '<span class="mini-pill muted">暂无凭据</span>'}</div>
+            <div class="token-grid">
+                <div class="token-item">
+                    <span>访问令牌</span>
+                    <strong>${escapeHtml(maskSecret(account.access_token))}</strong>
+                    <small>${account.token_expires_at ? `过期时间：${formatDate(account.token_expires_at)}` : "未记录过期时间"}</small>
+                </div>
+                <div class="token-item">
+                    <span>刷新令牌</span>
+                    <strong>${escapeHtml(maskSecret(account.refresh_token))}</strong>
+                    <small>客户端 ID：${escapeHtml(account.client_id || "使用默认公共客户端")}</small>
+                </div>
+            </div>
+        </div>
+
         <div class="detail-section">
             <h4>备注</h4>
             <p>${escapeHtml(account.note || "暂无备注")}</p>
         </div>
+
         <div class="detail-footer">
             <button class="btn btn-secondary" type="button" data-action="detail-mail" data-id="${account.id}">查看邮件</button>
             <button class="btn btn-danger" type="button" data-action="detail-delete" data-id="${account.id}">删除账号</button>
@@ -323,6 +402,10 @@ async function loadAccounts() {
 
     renderAccounts();
     renderDetailPanel();
+
+    if (!state.activeAccountId && state.accounts.length > 0) {
+        await selectAccount(state.accounts[0].id);
+    }
 }
 
 async function refreshPage() {
@@ -564,7 +647,7 @@ function renderMailList() {
         elements.mailList.innerHTML = `
             <div class="detail-placeholder">
                 <h3>没有邮件</h3>
-                <p>当前账号暂无邮件，或者没有匹配搜索条件的结果。</p>
+                <p>当前没有匹配的邮件。</p>
             </div>
         `;
         return;
@@ -586,7 +669,7 @@ function renderMailPreview() {
         elements.mailPreview.innerHTML = `
             <div class="detail-placeholder">
                 <h3>邮件预览</h3>
-                <p>从左侧选择一封邮件后，在这里显示正文内容。</p>
+                <p>从左侧选择一封邮件后，在这里查看正文。</p>
             </div>
         `;
         return;
@@ -633,11 +716,17 @@ async function openMailModal(accountId) {
 }
 
 function handleTableClick(event) {
+    const copyButton = event.target.closest("[data-copy-field][data-copy-value]");
+    if (copyButton) {
+        const label = copyButton.dataset.copyField === "password" ? "密码" : "账号";
+        copyText(copyButton.dataset.copyValue || "", label);
+        return;
+    }
+
     const actionButton = event.target.closest("[data-action]");
     if (actionButton) {
         const accountId = Number(actionButton.dataset.id);
         const action = actionButton.dataset.action;
-        if (action === "detail") selectAccount(accountId);
         if (action === "check") runCheck(accountId);
         if (action === "mail") openMailModal(accountId);
         if (action === "delete") removeAccount(accountId);
@@ -664,6 +753,13 @@ function handleTableChange(event) {
 }
 
 function handleDetailClick(event) {
+    const copyField = event.target.dataset.copyField;
+    if (copyField && state.activeAccountDetail) {
+        if (copyField === "email") copyText(state.activeAccountDetail.email || "", "账号");
+        if (copyField === "password") copyText(state.activeAccountDetail.password || "", "密码");
+        return;
+    }
+
     const action = event.target.dataset.action;
     const accountId = Number(event.target.dataset.id);
     if (!action || !accountId) return;
@@ -699,6 +795,7 @@ function bindEvents() {
     elements.accountsTableBody.addEventListener("click", handleTableClick);
     elements.accountsTableBody.addEventListener("change", handleTableChange);
     elements.detailPanel.addEventListener("click", handleDetailClick);
+
     elements.mailSearchInput.addEventListener("input", () => {
         renderMailList();
         if (!filteredEmails().find((mail) => mail.id === state.activeEmailId)) {

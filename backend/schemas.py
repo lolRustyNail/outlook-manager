@@ -97,6 +97,7 @@ class AccountListItem(BaseModel):
     id: int
     email: str
     display_name: Optional[str] = None
+    password: Optional[str] = None
     group_name: Optional[str] = None
     auth_mode: str
     is_active: bool

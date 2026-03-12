@@ -8,147 +8,134 @@
 </head>
 <body>
     <div class="shell">
-        <aside class="sidebar">
-            <div class="brand">
-                <div class="brand-mark">OM</div>
-                <div>
-                    <h1>Outlook 邮箱管理台</h1>
-                    <p>本地批量邮箱管理工作台</p>
+        <header class="topbar panel">
+            <div class="topbar-main">
+                <div class="brand">
+                    <div class="brand-mark">OM</div>
+                    <div>
+                        <h1>Outlook 邮箱管理台</h1>
+                        <p>更轻量的本地批量管理界面</p>
+                    </div>
+                </div>
+                <div class="topbar-actions">
+                    <button class="btn btn-muted" id="refreshBtn" type="button">刷新</button>
+                    <button class="btn btn-secondary" id="addBtn" type="button">新增账号</button>
+                    <button class="btn btn-primary" id="importBtn" type="button">批量导入</button>
                 </div>
             </div>
 
-            <nav class="nav">
-                <button class="nav-item is-active" type="button">邮箱总览</button>
-                <button class="nav-item" type="button" id="navImport">批量导入</button>
-                <button class="nav-item" type="button" id="navAdd">新增账号</button>
-                <button class="nav-item" type="button" id="navExport">导出备份</button>
-            </nav>
+            <div class="utility-row">
+                <div class="utility-links">
+                    <button class="nav-item" type="button" id="navAdd">新增</button>
+                    <button class="nav-item" type="button" id="navImport">导入</button>
+                    <button class="nav-item" type="button" id="navExport">导出</button>
+                </div>
+                <div class="inline-tip">
+                    <span>导入格式</span>
+                    <code>email----password----client_id----refresh_token----access_token----group----note</code>
+                </div>
+            </div>
+        </header>
 
-            <section class="side-card">
-                <span class="side-card-label">导入格式</span>
-                <p>每行一个账号，默认支持以下字段顺序：</p>
-                <code>email----password----client_id----refresh_token----access_token----group----note</code>
-            </section>
+        <section class="stats-grid">
+            <article class="stat-card">
+                <span class="stat-label">账号总数</span>
+                <strong id="statTotal">0</strong>
+                <small>本地已收录账号</small>
+            </article>
+            <article class="stat-card accent-success">
+                <span class="stat-label">可用账号</span>
+                <strong id="statHealthy">0</strong>
+                <small>可读取收件箱</small>
+            </article>
+            <article class="stat-card accent-warning">
+                <span class="stat-label">待处理</span>
+                <strong id="statAttention">0</strong>
+                <small>需检查或补权限</small>
+            </article>
+            <article class="stat-card accent-neutral">
+                <span class="stat-label">缺少令牌</span>
+                <strong id="statTokenless">0</strong>
+                <small>尚未填写令牌</small>
+            </article>
+        </section>
 
-            <section class="side-card">
-                <span class="side-card-label">使用说明</span>
-                <p>仅用于管理你自己拥有或已获授权的 Outlook 邮箱账号，默认在本地运行。</p>
-            </section>
-        </aside>
-
-        <main class="main">
-            <header class="hero">
+        <section class="panel controls-panel">
+            <div class="controls-head">
                 <div>
-                    <span class="hero-kicker">本地部署</span>
-                    <h2>统一管理 Outlook 账号、令牌、状态检测与邮件预览</h2>
-                    <p>适合本地批量导入、状态检查、收件箱预览和导出备份，操作流程接近后台管理台。</p>
+                    <h2>账号列表</h2>
+                    <p>保留常用操作，其余信息收进详情区，减少干扰。</p>
                 </div>
-                <div class="hero-badges">
-                    <span class="badge-pill">接口服务</span>
-                    <span class="badge-pill">本地存储</span>
-                    <span class="badge-pill">本机运行</span>
+                <div class="toolbar-actions">
+                    <button class="btn btn-muted" id="batchCheckBtn" type="button">批量检测</button>
+                    <button class="btn btn-muted" id="exportBtn" type="button">导出 CSV</button>
+                    <button class="btn btn-danger" id="batchDeleteBtn" type="button">批量删除</button>
                 </div>
-            </header>
+            </div>
 
-            <section class="stats-grid">
-                <article class="stat-card">
-                    <span class="stat-label">账号总数</span>
-                    <strong id="statTotal">0</strong>
-                    <small>当前本地数据库中的 Outlook 账号数量</small>
-                </article>
-                <article class="stat-card accent-emerald">
-                    <span class="stat-label">可用账号</span>
-                    <strong id="statHealthy">0</strong>
-                    <small>可正常访问收件箱的账号</small>
-                </article>
-                <article class="stat-card accent-amber">
-                    <span class="stat-label">待处理</span>
-                    <strong id="statAttention">0</strong>
-                    <small>检测失败、权限不足或缺少令牌</small>
-                </article>
-                <article class="stat-card accent-sky">
-                    <span class="stat-label">缺少令牌</span>
-                    <strong id="statTokenless">0</strong>
-                    <small>尚未填写 access_token 或 refresh_token</small>
-                </article>
-            </section>
+            <div class="toolbar">
+                <label class="field field-grow">
+                    <span>搜索</span>
+                    <input type="search" id="searchInput" placeholder="邮箱、显示名称、分组、状态">
+                </label>
+                <label class="field field-compact">
+                    <span>状态</span>
+                    <select id="statusFilter">
+                        <option value="all">全部</option>
+                        <option value="ready">正常</option>
+                        <option value="pending">待检查</option>
+                        <option value="insufficient_scope">权限不足</option>
+                        <option value="failed">检查失败</option>
+                        <option value="needs_token">缺少令牌</option>
+                    </select>
+                </label>
+                <label class="field field-compact">
+                    <span>分组</span>
+                    <select id="groupFilter">
+                        <option value="all">全部分组</option>
+                    </select>
+                </label>
+            </div>
+        </section>
 
-            <section class="panel controls-panel">
-                <div class="panel-header">
-                    <div>
-                        <h3>邮箱控制中心</h3>
-                        <p>支持搜索、导入、检测、删除、查看邮件和导出备份。</p>
-                    </div>
-                    <div class="actions">
-                        <button class="btn btn-muted" id="refreshBtn" type="button">刷新</button>
-                        <button class="btn btn-secondary" id="addBtn" type="button">新增账号</button>
-                        <button class="btn btn-primary" id="importBtn" type="button">批量导入</button>
+        <section class="workspace">
+            <article class="panel table-panel">
+                <div class="table-head">
+                    <div class="table-title">
+                        <h3>账号清单</h3>
+                        <p>点击任意行查看详情，常用操作已保留在表格内。</p>
                     </div>
                 </div>
-
-                <div class="toolbar">
-                    <label class="field field-grow">
-                        <span>搜索</span>
-                        <input type="search" id="searchInput" placeholder="按邮箱、分组或状态搜索">
-                    </label>
-                    <label class="field">
-                        <span>状态</span>
-                        <select id="statusFilter">
-                            <option value="all">全部状态</option>
-                            <option value="ready">正常</option>
-                            <option value="pending">待检查</option>
-                            <option value="insufficient_scope">权限不足</option>
-                            <option value="failed">检查失败</option>
-                            <option value="needs_token">需补充令牌</option>
-                        </select>
-                    </label>
-                    <label class="field">
-                        <span>分组</span>
-                        <select id="groupFilter">
-                            <option value="all">全部分组</option>
-                        </select>
-                    </label>
-                    <div class="toolbar-actions">
-                        <button class="btn btn-muted" id="batchCheckBtn" type="button">批量检测</button>
-                        <button class="btn btn-muted" id="exportBtn" type="button">导出 CSV</button>
-                        <button class="btn btn-danger" id="batchDeleteBtn" type="button">批量删除</button>
-                    </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="checkbox-cell"><input type="checkbox" id="selectAll"></th>
+                                <th>账号</th>
+                                <th>密码</th>
+                                <th>分组</th>
+                                <th>接入方式</th>
+                                <th>状态</th>
+                                <th>最近检测</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accountsTableBody"></tbody>
+                    </table>
                 </div>
-            </section>
+                <div class="empty-state hidden" id="emptyState">
+                    <h4>还没有账号</h4>
+                    <p>先新增一个账号，或直接批量导入开始使用。</p>
+                </div>
+            </article>
 
-            <section class="workspace">
-                <article class="panel table-panel">
-                    <div class="table-wrap">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th class="checkbox-cell"><input type="checkbox" id="selectAll"></th>
-                                    <th>邮箱账号</th>
-                                    <th>分组</th>
-                                    <th>接入方式</th>
-                                    <th>凭据</th>
-                                    <th>状态</th>
-                                    <th>最近检测</th>
-                                    <th>操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="accountsTableBody"></tbody>
-                        </table>
-                    </div>
-                    <div class="empty-state hidden" id="emptyState">
-                        <h4>还没有账号</h4>
-                        <p>点击“新增账号”或“批量导入”开始录入 Outlook 邮箱。</p>
-                    </div>
-                </article>
-
-                <aside class="panel detail-panel" id="detailPanel">
-                    <div class="detail-placeholder">
-                        <h3>账号详情</h3>
-                        <p>从左侧选择一个账号后，这里会显示凭据情况、备注、时间线和快捷操作。</p>
-                    </div>
-                </aside>
-            </section>
-        </main>
+            <aside class="panel detail-panel" id="detailPanel">
+                <div class="detail-placeholder">
+                    <h3>账号详情</h3>
+                    <p>选中账号后，这里会显示精简后的关键信息和快捷操作。</p>
+                </div>
+            </aside>
+        </section>
     </div>
 
     <div class="modal hidden" id="accountModal">
@@ -156,7 +143,7 @@
             <div class="modal-header">
                 <div>
                     <h3 id="accountModalTitle">新增账号</h3>
-                    <p>密码仅用于本地归档记录，真正访问收件箱使用访问令牌或刷新令牌。</p>
+                    <p>只保留必要字段，密码用于归档，邮箱读取依赖令牌。</p>
                 </div>
                 <button class="icon-btn" type="button" data-close="accountModal">关闭</button>
             </div>
@@ -168,7 +155,7 @@
                 </label>
                 <label class="field">
                     <span>显示名称</span>
-                    <input type="text" id="display_name" placeholder="例如 财务组 01">
+                    <input type="text" id="display_name" placeholder="例如：销售组 01">
                 </label>
                 <label class="field">
                     <span>分组</span>
@@ -187,7 +174,7 @@
                 </label>
                 <label class="field field-span-2">
                     <span>备注</span>
-                    <textarea id="note" rows="3" placeholder="填写用途、来源或负责人"></textarea>
+                    <textarea id="note" rows="3" placeholder="例如：来源、用途、负责人"></textarea>
                 </label>
                 <label class="field">
                     <span>客户端 ID</span>
@@ -228,7 +215,7 @@
             </div>
             <label class="field">
                 <span>粘贴账号数据</span>
-                <textarea id="importText" rows="14" placeholder="email----password----client_id----refresh_token----access_token----group----note"></textarea>
+                <textarea id="importText" rows="12" placeholder="email----password----client_id----refresh_token----access_token----group----note"></textarea>
             </label>
             <div class="import-example">
                 <strong>示例</strong>
@@ -247,7 +234,7 @@ sales02@outlook.com--------refresh-token-demo----access-token-demo----售后组-
             <div class="modal-header">
                 <div>
                     <h3 id="emailModalTitle">邮件预览</h3>
-                    <p>显示当前账号收件箱最近 20 封邮件。</p>
+                    <p>只显示最近 20 封，方便快速确认账号是否正常。</p>
                 </div>
                 <button class="icon-btn" type="button" data-close="emailModal">关闭</button>
             </div>
@@ -261,7 +248,7 @@ sales02@outlook.com--------refresh-token-demo----access-token-demo----售后组-
                 <div class="mail-preview" id="mailPreview">
                     <div class="detail-placeholder">
                         <h3>邮件预览</h3>
-                        <p>从左侧选择一封邮件后，在这里显示正文内容。</p>
+                        <p>从左侧选择一封邮件后，在这里查看正文。</p>
                     </div>
                 </div>
             </div>
