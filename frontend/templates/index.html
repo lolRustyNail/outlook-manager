@@ -113,7 +113,6 @@
                                 <th class="checkbox-cell"><input type="checkbox" id="selectAll"></th>
                                 <th>账号</th>
                                 <th>密码</th>
-                                <th>分组</th>
                                 <th>接入方式</th>
                                 <th>状态</th>
                                 <th>最近检测</th>
@@ -199,6 +198,33 @@
                 <div class="modal-footer field-span-2">
                     <button class="btn btn-muted" type="button" data-close="accountModal">取消</button>
                     <button class="btn btn-primary" type="submit">保存账号</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal hidden" id="passwordModal">
+        <div class="modal-card modal-small">
+            <div class="modal-header">
+                <div>
+                    <h3>修改密码</h3>
+                    <p>只更新当前账号的密码归档，不改动其他字段。</p>
+                </div>
+                <button class="icon-btn" type="button" data-close="passwordModal">关闭</button>
+            </div>
+            <form id="passwordForm" class="form-grid form-single">
+                <input type="hidden" id="passwordAccountId">
+                <label class="field field-span-2">
+                    <span>当前账号</span>
+                    <input type="text" id="passwordAccountEmail" readonly>
+                </label>
+                <label class="field field-span-2">
+                    <span>新密码</span>
+                    <input type="text" id="passwordValue" placeholder="输入新的密码内容">
+                </label>
+                <div class="modal-footer field-span-2">
+                    <button class="btn btn-muted" type="button" data-close="passwordModal">取消</button>
+                    <button class="btn btn-primary" type="submit" id="submitPasswordBtn">保存密码</button>
                 </div>
             </form>
         </div>

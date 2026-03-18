@@ -46,6 +46,7 @@ const elements = {
     emptyState: document.getElementById("emptyState"),
     detailPanel: document.getElementById("detailPanel"),
     accountForm: document.getElementById("accountForm"),
+    passwordForm: document.getElementById("passwordForm"),
     importText: document.getElementById("importText"),
     mailList: document.getElementById("mailList"),
     mailPreview: document.getElementById("mailPreview"),
@@ -259,7 +260,6 @@ function renderAccounts() {
                     <button class="mini-copy-btn" type="button" data-copy-field="password" data-copy-value="${escapeHtml(account.password || "")}">复制</button>
                 </div>
             </td>
-            <td>${escapeHtml(displayGroup(account.group_name))}</td>
             <td>${escapeHtml(authModeLabel(account.auth_mode))}</td>
             <td>
                 <div class="status-cell">
@@ -270,6 +270,7 @@ function renderAccounts() {
             <td>${escapeHtml(formatDate(account.last_check_at))}</td>
             <td>
                 <div class="row-actions">
+                    <button class="table-btn" type="button" data-action="password" data-id="${account.id}">改密</button>
                     <button class="table-btn" type="button" data-action="check" data-id="${account.id}">检测</button>
                     <button class="table-btn" type="button" data-action="mail" data-id="${account.id}">邮件</button>
                     <button class="table-btn danger" type="button" data-action="delete" data-id="${account.id}">删除</button>
@@ -376,6 +377,7 @@ function renderDetailPanel() {
         </div>
 
         <div class="detail-footer">
+            <button class="btn btn-muted" type="button" data-action="detail-password" data-id="${account.id}">修改密码</button>
             <button class="btn btn-secondary" type="button" data-action="detail-mail" data-id="${account.id}">查看邮件</button>
             <button class="btn btn-danger" type="button" data-action="detail-delete" data-id="${account.id}">删除账号</button>
         </div>
@@ -442,6 +444,21 @@ function fillAccountForm(account = null) {
     document.getElementById("accountModalTitle").textContent = account ? "编辑账号" : "新增账号";
 }
 
+function openPasswordModal(accountId) {
+    const account = state.accounts.find((item) => item.id === accountId) || state.activeAccountDetail;
+    if (!account) {
+        toast("未找到账号信息", "error");
+        return;
+    }
+
+    document.getElementById("passwordAccountId").value = account.id;
+    document.getElementById("passwordAccountEmail").value = account.email || "";
+    document.getElementById("passwordValue").value = account.password || "";
+    openModal("passwordModal");
+    document.getElementById("passwordValue").focus();
+    document.getElementById("passwordValue").select();
+}
+
 function gatherAccountForm() {
     return {
         email: document.getElementById("email").value,
@@ -474,6 +491,35 @@ async function saveAccount(event) {
         await refreshPage();
         if (state.activeAccountId) {
             await selectAccount(Number(state.activeAccountId));
+        }
+    } catch (error) {
+        toast(error.message, "error");
+    } finally {
+        hideLoading();
+    }
+}
+
+async function savePassword(event) {
+    event.preventDefault();
+    const accountId = document.getElementById("passwordAccountId").value;
+    const password = document.getElementById("passwordValue").value;
+
+    if (!accountId) {
+        toast("未找到账号", "error");
+        return;
+    }
+
+    showLoading("正在保存密码...");
+    try {
+        await api(`/api/accounts/${accountId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ password }),
+        });
+        closeModal("passwordModal");
+        toast("密码已更新", "success");
+        await refreshPage();
+        if (state.activeAccountId === Number(accountId)) {
+            await selectAccount(Number(accountId));
         }
     } catch (error) {
         toast(error.message, "error");
@@ -727,6 +773,7 @@ function handleTableClick(event) {
     if (actionButton) {
         const accountId = Number(actionButton.dataset.id);
         const action = actionButton.dataset.action;
+        if (action === "password") openPasswordModal(accountId);
         if (action === "check") runCheck(accountId);
         if (action === "mail") openMailModal(accountId);
         if (action === "delete") removeAccount(accountId);
@@ -765,6 +812,7 @@ function handleDetailClick(event) {
     if (!action || !accountId) return;
 
     if (action === "edit") editAccount(accountId);
+    if (action === "detail-password") openPasswordModal(accountId);
     if (action === "detail-check") runCheck(accountId);
     if (action === "detail-mail") openMailModal(accountId);
     if (action === "detail-delete") removeAccount(accountId);
@@ -789,6 +837,7 @@ function bindEvents() {
     document.getElementById("submitImportBtn").addEventListener("click", submitImport);
 
     elements.accountForm.addEventListener("submit", saveAccount);
+    elements.passwordForm.addEventListener("submit", savePassword);
     elements.searchInput.addEventListener("input", renderAccounts);
     elements.statusFilter.addEventListener("change", renderAccounts);
     elements.groupFilter.addEventListener("change", renderAccounts);
