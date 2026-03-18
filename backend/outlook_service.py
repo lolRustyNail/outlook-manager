@@ -93,8 +93,14 @@ class OutlookService:
 
     async def _request_json(self, token: str, path: str, params: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         timeout = aiohttp.ClientTimeout(total=30)
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Cache-Control": "no-cache",
+            "Prefer": "odata.maxpagesize=50",
+        }
         url = f"{self.OUTLOOK_BASE_URL}{path}"
+        params = params or {}
+        params["_t"] = str(int(datetime.utcnow().timestamp() * 1000))
 
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(url, headers=headers, params=params) as response:
